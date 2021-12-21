@@ -114,6 +114,49 @@ ColumnPtr BitmapFunctions::bitmap_or(FunctionContext* context, const starrocks::
     return builder.build(ColumnHelper::is_all_const(columns));
 }
 
+ColumnPtr BitmapFunctions::sub_bitmap(FunctionContext* context, const starrocks::vectorized::Columns& columns) {
+    RETURN_IF_COLUMNS_ONLY_NULL(columns);
+
+    ColumnViewer<TYPE_OBJECT> lhs(columns[0]);
+    ColumnViewer<TYPE_BIGINT> _page(columns[1]);
+    ColumnViewer<TYPE_BIGINT> _size(columns[2]);
+
+    ColumnBuilder<TYPE_OBJECT> builder;
+
+    size_t size = columns[0]->size();
+    for (int row = 0; row < size; ++row) {
+        if (lhs.is_null(row)) {
+            builder.append_null();
+            continue;
+        }
+
+        int _page_int = _page.value(row);
+        int _size_int = _size.value(row);
+        int _offset = _size_int * (_page_int-1);
+
+        BitmapValue bitmap;
+        BitmapValue temp_bitmap;
+        temp_bitmap |= (*lhs.value(row));
+
+        int i = 0;
+        starrocks::detail::Roaring64MapSetBitForwardIterator iter1 = temp_bitmap.getBitmap()->begin();
+        while(iter1 != temp_bitmap.getBitmap()->end()) {
+            i++;
+            if (i > _offset) {
+                bitmap.add(*iter1);
+            }
+            if (i == _offset + _size_int) {
+                break;
+            }
+            iter1++;
+        }
+
+        builder.append(&bitmap);
+    }
+
+    return builder.build(ColumnHelper::is_all_const(columns));
+}
+
 ColumnPtr BitmapFunctions::bitmap_and(FunctionContext* context, const starrocks::vectorized::Columns& columns) {
     RETURN_IF_COLUMNS_ONLY_NULL(columns);
 

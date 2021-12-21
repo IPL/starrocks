@@ -1706,6 +1706,10 @@ public:
         _sv = 0;
     }
 
+    std::shared_ptr<detail::Roaring64Map> getBitmap() {
+        return _bitmap;
+    }
+
 private:
     void _convert_to_smaller_type() {
         if (_type == BITMAP) {
